@@ -1,0 +1,378 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DayFlow｜智慧行程規劃</title>
+<style>
+*{box-sizing:border-box}
+:root{--purple:#7865bd;--bg:#f8f7fc;--line:#ebe7f3;--muted:#827d91}
+body{margin:0;background:var(--bg);color:#29263a;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC",sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);padding:25px max(20px,calc((100% - 940px)/2))}
+h1{margin:0;color:var(--purple)}h2{font-size:19px;margin:0 0 14px}h3{font-size:16px}
+p{line-height:1.6}.muted{color:var(--muted);font-size:13px}
+main{max-width:980px;margin:auto;padding:24px 20px 60px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+.num{font-size:24px;font-weight:700;margin-top:7px}
+label{display:block;font-size:13px;margin:12px 0 6px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #dcd7e9;border-radius:9px;background:#fff;color:inherit;font:inherit;min-width:0}
+button{padding:10px 14px;border:0;border-radius:9px;background:var(--purple);color:white;font:inherit;cursor:pointer}
+button:hover{opacity:.86}
+button.secondary{background:#eeeaf8;color:#5c4b9a}
+button.danger{background:#fff0f0;color:#b33d4a}
+button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.form-actions{margin-top:16px}
+.item{border-top:1px solid var(--line);padding:14px 0}
+.item:first-child{border-top:0}
+.item-title{font-weight:650}
+.tag{display:inline-block;padding:3px 8px;border-radius:7px;background:#eeeaf8;color:#5c4b9a;font-size:12px;margin:3px 4px 3px 0}
+.timeline{border-left:3px solid #d9d0fa;margin:20px 0 10px 8px;padding-left:18px}
+.slot{position:relative;padding:0 0 19px}
+.slot:before{content:"";position:absolute;left:-24px;top:5px;width:9px;height:9px;border-radius:50%;background:#8875cf}
+.slot-time{font-weight:700;font-size:14px}
+.slot-title{margin-top:4px}
+.slot.fixed:before{background:#d19a43}
+.slot.rest:before{background:#aaa3b9}
+.warning{background:#fff8e8;border:1px solid #f0dfb7;border-radius:10px;padding:12px;margin-top:12px;font-size:14px}
+.success{color:#39815a}
+.empty{padding:14px 0;color:var(--muted);font-size:14px}
+hr{border:0;border-top:1px solid var(--line);margin:20px 0}
+@media(max-width:620px){.grid,.stats{grid-template-columns:1fr}.card{padding:16px}header{padding-top:20px;padding-bottom:20px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>DayFlow ✦</h1>
+  <div>Plan your day. Track your time.</div>
+  <p class="muted" id="today"></p>
+</header>
+<main>
+  <section class="stats">
+    <div class="stat"><div class="muted">今日任務</div><div class="num" id="total">0</div></div>
+    <div class="stat"><div class="muted">預計總時間</div><div class="num" id="planned">0 分鐘</div></div>
+    <div class="stat"><div class="muted">已完成</div><div class="num" id="completed">0 / 0</div></div>
+    <div class="stat"><div class="muted">完成率</div><div class="num" id="completionRate">0%</div></div>
+    <div class="stat"><div class="muted">實際投入</div><div class="num" id="actualTotal">0 分鐘</div></div>
+  </section>
+
+  <section class="card">
+    <h2>① 每日時間設定</h2>
+    <p class="muted">設定你今天可以安排事情的時間。固定行程會從可用時段中扣除。</p>
+    <div class="grid">
+      <div><label for="dayStart">最早開始時間</label><input id="dayStart" type="time" value="08:00"></div>
+      <div><label for="dayEnd">最晚結束時間</label><input id="dayEnd" type="time" value="22:00"></div>
+      <div><label for="breakMinutes">任務間休息（分鐘）</label><input id="breakMinutes" type="number" min="0" max="120" value="10"></div>
+      <div><label for="scheduleDate">規劃日期</label><input id="scheduleDate" type="date"></div>
+    </div>
+    <div class="actions"><button id="saveSettings">儲存時間設定</button></div>
+    <p id="settingsMessage" class="muted"></p>
+  </section>
+
+  <section class="card">
+    <h2>② 新增固定行程</h2>
+    <p class="muted">例如上課、開會、吃飯或看醫生。排程器不會把其他任務排進這些時段。</p>
+    <form id="fixedForm">
+      <label for="fixedName">行程名稱</label>
+      <input id="fixedName" maxlength="100" placeholder="例如：微積分課" required>
+      <div class="grid">
+        <div><label for="fixedStart">開始時間</label><input id="fixedStart" type="time" value="10:00" required></div>
+        <div><label for="fixedEnd">結束時間</label><input id="fixedEnd" type="time" value="12:00" required></div>
+      </div>
+      <div class="form-actions"><button type="submit">＋ 新增固定行程</button></div>
+    </form>
+    <hr>
+    <div id="fixedList"></div>
+  </section>
+
+  <section class="card">
+    <h2>③ 新增待辦任務</h2>
+    <form id="taskForm">
+      <label for="taskName">任務名稱</label>
+      <input id="taskName" maxlength="100" placeholder="例如：完成微積分作業" required>
+      <div class="grid">
+        <div><label for="duration">預估時間（分鐘）</label><input id="duration" type="number" min="1" max="1440" value="60" required></div>
+        <div><label for="priority">優先程度</label>
+          <select id="priority"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select>
+        </div>
+        <div><label for="deadline">必須完成時間（選填）</label><input id="deadline" type="time"></div>
+        <div><label for="category">任務分類</label>
+          <select id="category"><option>課業</option><option>工作</option><option>生活</option><option>運動</option><option>休閒</option><option>其他</option></select>
+        </div>
+      </div>
+      <p class="muted">未設定截止時間的任務，會安排在其他有截止時間的任務之後；相同條件時依優先程度排序。</p>
+      <div class="form-actions"><button type="submit">＋ 新增任務</button></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>④ 自動安排今日行程</h2>
+    <p class="muted">系統會嘗試安排所有未完成任務，保留固定行程和任務間的休息時間。</p>
+    <button id="scheduleBtn">✨ 產生行程表</button>
+    <div id="scheduleSummary" class="muted" style="margin-top:12px"></div>
+    <div id="timeline" class="timeline"></div>
+    <div id="unscheduled"></div>
+  </section>
+
+  <section class="card">
+    <h2>⑤ 任務清單與計時</h2>
+    <p class="muted">開始任務後，計時器會記錄實際投入時間。一次只能計時一項任務。</p>
+    <div id="tasks"></div>
+  </section>
+
+  <section class="card">
+    <h2>⑥ 今日時間回顧</h2>
+    <div id="review">完成任務後，這裡會比較預估與實際時間。</div>
+  </section>
+</main>
+
+<script>
+const TASK_KEY="dayflow_tasks_v1";
+const FIXED_KEY="dayflow_fixed_v1";
+const SETTINGS_KEY="dayflow_settings_v2";
+const $=id=>document.getElementById(id);
+const priorities={high:0,medium:1,low:2};
+let tasks=[],fixedEvents=[],settings={start:"08:00",end:"22:00",rest:10,date:localDate()};
+let tickHandle=null;
+
+function localDate(d=new Date()){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function readJSON(key,fallback){
+  try{const x=JSON.parse(localStorage.getItem(key));return x??fallback}catch{return fallback}
+}
+tasks=readJSON(TASK_KEY,[]);
+if(!Array.isArray(tasks))tasks=[];
+fixedEvents=readJSON(FIXED_KEY,[]);
+if(!Array.isArray(fixedEvents))fixedEvents=[];
+settings={...settings,...readJSON(SETTINGS_KEY,{})};
+
+function saveTasks(){localStorage.setItem(TASK_KEY,JSON.stringify(tasks))}
+function saveFixed(){localStorage.setItem(FIXED_KEY,JSON.stringify(fixedEvents))}
+function saveSettings(){localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings))}
+function uid(){return crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())}
+function mins(time){if(!/^\d{2}:\d{2}$/.test(time||""))return NaN;const [h,m]=time.split(":").map(Number);return h*60+m}
+function clock(n){return `${String(Math.floor(n/60)%24).padStart(2,"0")}:${String(n%60).padStart(2,"0")}`}
+function durationText(n){n=Math.max(0,Math.floor(n));return `${Math.floor(n/60)} 小時 ${n%60} 分鐘`}
+function elapsed(t){return (t.actualSeconds||0)+(t.runningSince?Math.max(0,Math.floor((Date.now()-t.runningSince)/1000)):0)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function sortFixed(){fixedEvents.sort((a,b)=>mins(a.start)-mins(b.start))}
+function validateFixed(events,start,end){
+  const sorted=[...events].sort((a,b)=>mins(a.start)-mins(b.start));
+  for(const e of sorted){
+    const s=mins(e.start),en=mins(e.end);
+    if(!Number.isFinite(s)||!Number.isFinite(en)||s>=en)return "固定行程的開始時間必須早於結束時間。";
+    if(s<start||en>end)return `固定行程「${e.title}」超出每日可用時段。`;
+  }
+  for(let i=1;i<sorted.length;i++){
+    if(mins(sorted[i].start)<mins(sorted[i-1].end))return `固定行程「${sorted[i-1].title}」與「${sorted[i].title}」時間重疊。`;
+  }
+  return "";
+}
+
+function renderFixed(){
+  const box=$("fixedList");
+  if(!fixedEvents.length){box.innerHTML='<div class="empty">尚未設定固定行程。</div>';return}
+  box.innerHTML=fixedEvents.map(e=>`<div class="item">
+    <div class="item-title">${esc(e.title)}</div>
+    <div class="muted">${esc(e.start)} – ${esc(e.end)}</div>
+    <div class="actions"><button class="danger" data-delete-fixed="${esc(e.id)}">刪除行程</button></div>
+  </div>`).join("");
+}
+function renderTasks(){
+  $("total").textContent=tasks.length;
+  $("planned").textContent=durationText(tasks.reduce((s,t)=>s+(Number(t.estimatedMinutes)||0),0));
+  $("completed").textContent=`${tasks.filter(t=>t.status==="done").length} / ${tasks.length}`;
+  $("completionRate").textContent=tasks.length?`${Math.round(tasks.filter(t=>t.status==="done").length/tasks.length*100)}%`:"0%";
+  $("actualTotal").textContent=durationText(Math.floor(tasks.reduce((s,t)=>s+elapsed(t),0)/60));
+  const box=$("tasks");
+  if(!tasks.length){box.innerHTML='<div class="empty">還沒有任務，新增一項開始規劃吧！</div>';return}
+  box.innerHTML=tasks.map(t=>{
+    const status=t.status==="done"?"已完成":t.runningSince?"計時中":t.status==="doing"?"進行中":"待辦";
+    return `<div class="item">
+      <div class="item-title">${esc(t.title)}</div>
+      <div><span class="tag">${esc(t.category||"其他")}</span><span class="tag">優先程度：${({high:"高",medium:"中",low:"低"})[t.priority]||"中"}</span></div>
+      <div class="muted">預估 ${t.estimatedMinutes} 分鐘 · ${status}${t.deadline?" · 截止 "+esc(t.deadline):""}</div>
+      <div class="muted">時間差距：${Math.floor(elapsed(t)/60)-(Number(t.estimatedMinutes)||0)>0?`比預估多花 ${Math.floor(elapsed(t)/60)-(Number(t.estimatedMinutes)||0)} 分鐘`:Math.floor(elapsed(t)/60)-(Number(t.estimatedMinutes)||0)<0?`比預估少花 ${Math.abs(Math.floor(elapsed(t)/60)-(Number(t.estimatedMinutes)||0))} 分鐘`:"符合預估時間"}</div>
+      <div class="muted">預估時間使用率：${(Number(t.estimatedMinutes)||0)>0?Math.round(elapsed(t)/60/(Number(t.estimatedMinutes)||0)*100)+"%":"尚未設定預估時間"}</div>
+      <div class="actions">
+      ${t.status==="done"?"":t.runningSince?`<button class="secondary" data-pause="${esc(t.id)}">暫停</button>`:`<button data-start="${esc(t.id)}">開始計時</button>`}
+      ${t.status==="done"?"":`<button class="secondary" data-finish="${esc(t.id)}">完成任務</button>`}
+      <button class="secondary" data-edit="${esc(t.id)}">修改時間</button>
+      <button class="danger" data-delete-task="${esc(t.id)}">刪除</button>
+      </div>
+    </div>`;
+}).join("");
+}
+
+function renderReview(){
+  const done=tasks.filter(t=>t.status==="done");
+  if(!done.length){$("review").textContent="完成任務後，這裡會比較預估與實際時間。";return}
+  const estimate=done.reduce((s,t)=>s+t.estimatedMinutes*60,0);
+  const actual=done.reduce((s,t)=>s+elapsed(t),0);
+  const diff=Math.round((actual-estimate)/60);
+  $("review").textContent=`已完成 ${done.length} 項任務。預估 ${durationText(estimate/60)}，實際 ${durationText(actual/60)}。`+
+  (diff>0?`比預期多花 ${diff} 分鐘。`:diff<0?`比預期少花 ${-diff} 分鐘。`:"時間估算相當準確！");
+}
+function render(){
+  renderTasks();renderReview();
+}
+function syncTimer(){
+  if(tickHandle)clearInterval(tickHandle);
+  tickHandle=tasks.some(t=>t.runningSince)?setInterval(render,1000):null;
+}
+function pauseTask(id,shouldRender=true){
+  const t=tasks.find(t=>t.id===id);
+  if(!t||!t.runningSince)return;
+  t.actualSeconds=elapsed(t);t.runningSince=null;t.status="todo";
+  saveTasks();syncTimer();if(shouldRender)render();
+}
+function startTask(id){
+  const t=tasks.find(t=>t.id===id);
+  if(!t||t.status==="done")return;
+  tasks.filter(x=>x.runningSince).forEach(x=>pauseTask(x.id,false));
+  t.runningSince=Date.now();t.status="doing";
+  saveTasks();syncTimer();render();
+}
+function finishTask(id){
+  const t=tasks.find(t=>t.id===id);if(!t)return;
+  if(t.runningSince){t.actualSeconds=elapsed(t);t.runningSince=null}
+  t.status="done";t.completedAt=new Date().toISOString();
+  saveTasks();syncTimer();render();
+}
+
+function readSettings(){
+  const start=$("dayStart").value,end=$("dayEnd").value;
+  const rest=Number($("breakMinutes").value),date=$("scheduleDate").value;
+  if(!Number.isFinite(mins(start))||!Number.isFinite(mins(end))||mins(start)>=mins(end)){
+    alert("請設定正確的每日開始與結束時間。");return false;
+  }
+  if(!Number.isInteger(rest)||rest<0||rest>120){alert("休息時間請填 0 至 120 的整數分鐘。");return false}
+  if(!date){alert("請選擇規劃日期。");return false}
+  const err=validateFixed(fixedEvents,mins(start),mins(end));
+  if(err){alert(err);return false}
+  settings={start,end,rest,date};saveSettings();
+  $("settingsMessage").textContent="時間設定已儲存。";
+  return true;
+}
+$("saveSettings").addEventListener("click",()=>{
+  if(readSettings())$("settingsMessage").textContent="設定已儲存！產生行程表以套用新設定。";
+});
+$("fixedForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const title=$("fixedName").value.trim(),start=$("fixedStart").value,end=$("fixedEnd").value;
+  if(!title){alert("請輸入行程名稱。");return}
+  const candidate=[...fixedEvents,{id:uid(),title,start,end}];
+  const err=validateFixed(candidate,mins($("dayStart").value),mins($("dayEnd").value));
+  if(err){alert(err);return}
+  fixedEvents=candidate;sortFixed();saveFixed();renderFixed();
+  $("fixedName").value="";
+});
+
+$("taskForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const title=$("taskName").value.trim(),d=Number($("duration").value);
+  const deadline=$("deadline").value;
+  if(!title||!Number.isInteger(d)||d<1||d>1440){alert("請輸入任務名稱與 1 至 1440 的整數分鐘。");return}
+  if(deadline&&(!Number.isFinite(mins(deadline))||mins(deadline)<=mins($("dayStart").value))){
+    alert("截止時間必須晚於每日開始時間。");return;
+  }
+  tasks.push({id:uid(),title,estimatedMinutes:d,priority:$("priority").value,deadline,category:$("category").value,status:"todo",actualSeconds:0,runningSince:null});
+  saveTasks();$("taskName").value="";$("deadline").value="";render();
+});
+
+$("fixedList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-delete-fixed]");if(!b)return;
+  fixedEvents=fixedEvents.filter(x=>x.id!==b.dataset.deleteFixed);saveFixed();renderFixed();
+});
+
+$("tasks").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const id=b.dataset.start||b.dataset.pause||b.dataset.finish||b.dataset.deleteTask||b.dataset.edit;
+  if(!id)return;
+  if(b.dataset.start)startTask(id);
+  else if(b.dataset.pause)pauseTask(id);
+  else if(b.dataset.finish)finishTask(id);
+  else if(b.dataset.deleteTask){
+    const t=tasks.find(x=>x.id===id);if(t?.runningSince)pauseTask(id,false);
+    tasks=tasks.filter(x=>x.id!==id);saveTasks();syncTimer();render();
+  }else if(b.dataset.edit){
+    const t=tasks.find(x=>x.id===id);if(!t)return;
+    const input=prompt("輸入新的預估時間（分鐘）：",String(t.estimatedMinutes));
+    if(input===null)return;
+    const n=Number(input);
+    if(!Number.isInteger(n)||n<1||n>1440){alert("請輸入 1 至 1440 的整數。");return}
+    t.estimatedMinutes=n;saveTasks();render();
+  }
+});
+
+$("scheduleBtn").addEventListener("click",()=>{
+  if(!readSettings())return;
+  const dayStart=mins(settings.start),dayEnd=mins(settings.end),rest=settings.rest;
+  const err=validateFixed(fixedEvents,dayStart,dayEnd);
+  if(err){alert(err);return}
+  const fixed=[...fixedEvents].sort((a,b)=>mins(a.start)-mins(b.start));
+  const pending=tasks.filter(t=>t.status!=="done"&&!t.runningSince).sort((a,b)=>{
+    const ad=a.deadline?mins(a.deadline):Infinity;
+    const bd=b.deadline?mins(b.deadline):Infinity;
+    return ad-bd||priorities[a.priority]-priorities[b.priority];
+  });
+  const blocks=fixed.map(e=>({start:mins(e.start),end:mins(e.end),title:e.title,type:"fixed"}));
+  const placed=[],unplaced=[];
+  for(const task of pending){
+    const length=Number(task.estimatedMinutes);
+    const deadline=task.deadline?mins(task.deadline):dayEnd;
+    let cursor=dayStart,found=null;
+    const sorted=[...blocks].sort((a,b)=>a.start-b.start);
+    for(const block of sorted){
+      const gapEnd=block.start;
+      const candidateEnd=cursor+length;
+      if(candidateEnd<=gapEnd&&candidateEnd<=deadline&&candidateEnd<=dayEnd){
+        found={start:cursor,end:candidateEnd,title:task.title,type:"task",id:task.id};
+        break;
+      }
+      cursor=Math.max(cursor,block.end+rest);
+    }
+    if(!found&&cursor+length<=dayEnd&&cursor+length<=deadline){
+      found={start:cursor,end:cursor+length,title:task.title,type:"task",id:task.id};
+    }
+    if(found){placed.push(found);blocks.push(found)}
+    else unplaced.push({task,reason:deadline<dayEnd?"可能是截止時間太早或可用時段不足":"可用時段不足"})
+  }
+  const all=[...fixed.map(e=>({start:mins(e.start),end:mins(e.end),title:e.title,type:"fixed"})),...placed]
+    .sort((a,b)=>a.start-b.start);
+  const timeline=$("timeline");timeline.innerHTML="";
+  if(!all.length)timeline.innerHTML='<div class="empty">目前沒有可顯示的行程。</div>';
+  all.forEach((item,i)=>{
+    if(i>0&&all[i-1].end<item.start){
+      const gap=item.start-all[i-1].end;
+      if(gap>0&&gap<=rest&&item.type==="task"){
+        const restEl=document.createElement("div");restEl.className="slot rest";
+        restEl.innerHTML=`<div class="slot-time">${clock(all[i-1].end)} – ${clock(item.start)}</div><div class="slot-title">休息／空檔（${gap} 分鐘）</div>`;
+        timeline.appendChild(restEl);
+      }
+    }
+    const el=document.createElement("div");el.className="slot"+(item.type==="fixed"?" fixed":"");
+    el.innerHTML=`<div class="slot-time">${clock(item.start)} – ${clock(item.end)}</div><div class="slot-title">${item.type==="fixed"?"📌 ":""}${esc(item.title)}</div><div class="muted">${item.type==="fixed"?"固定行程":"預估 "+(item.end-item.start)+" 分鐘"}</div>`;
+    timeline.appendChild(el);
+  });
+  const used=placed.reduce((s,x)=>s+x.end-x.start,0);
+  $("scheduleSummary").textContent=`成功安排 ${placed.length} 項任務，共 ${used} 分鐘；固定行程 ${fixed.length} 項。未完成任務不會被重新排入。`;
+  $("unscheduled").innerHTML=unplaced.length?
+    `<div class="warning"><strong>以下任務尚未安排</strong>${unplaced.map(x=>`<div style="margin-top:8px">${esc(x.task.title)}（${x.task.estimatedMinutes} 分鐘）：${x.reason}</div>`).join("")}</div>`:
+    '<p class="success">所有待辦任務都已成功安排！</p>';
+});
+
+$("scheduleDate").value=settings.date;
+$("dayStart").value=settings.start;
+$("dayEnd").value=settings.end;
+$("breakMinutes").value=settings.rest;
+$("today").textContent=new Date().toLocaleDateString("zh-TW",{year:"numeric",month:"long",day:"numeric",weekday:"long"});
+sortFixed();renderFixed();syncTimer();render();
+</script>
+</body>
+</html>
